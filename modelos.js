@@ -87,9 +87,13 @@ window.LS_MODELOS = {
   // Ajustes opcionales por archivo: { rotacion: [x, y, z] en grados }
   ajustes: {},
 
-  // Objetos del escenario (null = figura provisional)
+  // Objetos del escenario: nombre del .glb en carpetaEscenario (null = figura provisional).
+  // La cuchara y el cuenco tienen licencia MakerWorld (uso personal): su carpeta no se sube a git.
+  // Si faltan, el juego usa las figuras provisionales.
+  carpetaEscenario: 'modelos_cuchara_y_cuencos/',
+  carpetaEscenarioJs: 'modelos_cuchara_y_cuencos/js/',
   escenario: {
     habitacion: null, mesa: null, aro_luz: null,
-    plato: null, cuchara: null, charola: null, caja: null,
+    plato: 'cuenco_facetform_bajo', cuchara: 'cuchara_corazon', charola: null, caja: null,
   },
 };

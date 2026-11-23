@@ -3,27 +3,32 @@
 // =========================================================
 window.LS_DATA = {
 
-  // Los 12 IDs de figurita. Siempre las mismas cantidades en cada partida (120 en total).
-  // Qué modelo 3D carga cada ID depende del tema (ver modelos.js).
-  // "color" solo se usa si un modelo no carga (esfera de respaldo) y en la tabla.
+  // Los 12 IDs de figurita de cada tema. Qué modelo 3D carga cada ID depende del tema (ver modelos.js).
+  // "color" solo se usa si un modelo no carga (esfera de respaldo).
   bolitas: [
-    { id: 'C1', nivel: 'comun',      cantidad: 12, color: '#ff9ec7' },
-    { id: 'C2', nivel: 'comun',      cantidad: 12, color: '#ffe066' },
-    { id: 'C3', nivel: 'comun',      cantidad: 12, color: '#9ef0c8' },
-    { id: 'C4', nivel: 'comun',      cantidad: 12, color: '#8fd3ff' },
-    { id: 'C5', nivel: 'comun',      cantidad: 12, color: '#c9a7ff' },
-    { id: 'C6', nivel: 'comun',      cantidad: 12, color: '#ffffff' },
-    { id: 'C7', nivel: 'comun',      cantidad: 12, color: '#ffad5c' },
-    { id: 'E1', nivel: 'epico',      cantidad: 10, color: '#9b4dff' },
-    { id: 'E2', nivel: 'epico',      cantidad: 10, color: '#3b7bff' },
-    { id: 'E3', nivel: 'epico',      cantidad: 10, color: '#ff4fa3' },
-    { id: 'L1', nivel: 'legendario', cantidad: 3,  color: '#ffc83d' },
-    { id: 'L2', nivel: 'legendario', cantidad: 3,  color: '#ff6b6b' },
+    { id: 'C1', nivel: 'comun',      color: '#ff9ec7' },
+    { id: 'C2', nivel: 'comun',      color: '#ffe066' },
+    { id: 'C3', nivel: 'comun',      color: '#9ef0c8' },
+    { id: 'C4', nivel: 'comun',      color: '#8fd3ff' },
+    { id: 'C5', nivel: 'comun',      color: '#c9a7ff' },
+    { id: 'C6', nivel: 'comun',      color: '#ffffff' },
+    { id: 'C7', nivel: 'comun',      color: '#ffad5c' },
+    { id: 'E1', nivel: 'epico',      color: '#9b4dff' },
+    { id: 'E2', nivel: 'epico',      color: '#3b7bff' },
+    { id: 'E3', nivel: 'epico',      color: '#ff4fa3' },
+    { id: 'L1', nivel: 'legendario', color: '#ffc83d' },
+    { id: 'L2', nivel: 'legendario', color: '#ff6b6b' },
   ],
 
+  // Probabilidad de cada nivel por figurita (siempre igual, sin importar los temas elegidos)
+  pesos: { comun: 70, epico: 25, legendario: 5 },
+
+  // Figuritas en el plato por nivel (solo visual: el azar no depende de esto)
+  plato: { comun: 84, epico: 30, legendario: 6 },
+
   niveles: {
-    legendario: { nombre: 'Legendario', orden: 0 },
-    epico:      { nombre: 'Épico',      orden: 1 },
+    legendario: { nombre: 'Legendaria', orden: 0 },
+    epico:      { nombre: 'Épica',      orden: 1 },
     comun:      { nombre: 'Común',      orden: 2 },
     regalo:     { nombre: 'Regalo',     orden: 3 },
   },
@@ -74,7 +79,7 @@ window.LS_DATA = {
     capibara: { nombre: 'Capibara', premios: [
       'Stickers de capibara', 'Pulsera de capibara', 'Llavero de capibara', 'Pinza para el cabello de capibara',
       'Borrador de capibara', 'Lápiz de capibara', 'Calcetines de capibara',
-      'Peluche mediano de capibara', 'Squishy de capibara', 'Pantuflas de capibara',
+      'Peluche mediano de capibara', 'Taza de capibara', 'Pantuflas de capibara',
       'Peluche gigante de capibara', 'Mochila de peluche de capibara' ] },
     squishy: { nombre: 'Squishy', premios: [
       'Squishy mini de fresa', 'Squishy mini de pan', 'Squishy mini de gato', 'Squishy mini de dona',
@@ -98,5 +103,6 @@ window.LS_DATA = {
     { id: 'p3', nombre: '3 scoops', precio: 200, cucharadas: 3, extras: ['regalo', 'regalo', 'epico', 'legendario'] },
   ],
 
-  bolitasPorCucharada: 5,
+  // Figuritas por cucharada: al azar entre min y max, todas las cantidades con la misma probabilidad
+  porCucharada: { min: 4, max: 7 },
 };

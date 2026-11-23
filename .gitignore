@@ -2,3 +2,6 @@
 Thumbs.db
 desktop.ini
 .vscode/
+
+# Cuchara y cuencos: licencia MakerWorld no permite distribuirlos (ver su LEEME.md)
+modelos_cuchara_y_cuencos/

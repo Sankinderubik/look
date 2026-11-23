@@ -149,6 +149,12 @@
     padding: 14px 40px; border-radius: 999px; box-shadow: 0 6px 0 #c9407c; margin-top: 22px;
   }
   .primary:active { transform: translateY(3px); box-shadow: 0 3px 0 #c9407c; }
+  .primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .cat-title { text-align: left; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; opacity: .7; margin: 14px 0 8px; }
+  .cat-title:first-child { margin-top: 0; }
+  .big[aria-pressed="true"] { background: var(--pink); color: #fff; border-color: var(--pink-d); }
+  .big[aria-pressed="true"]::after { content: '✓'; font-size: 16px; }
+  .count { margin-top: 14px; font-weight: 600; }
   .back { cursor: pointer; background: none; border: none; margin-top: 16px; font-size: 15px; opacity: .7; text-decoration: underline; }
   .row-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .row-btns .primary { font-size: 18px; padding: 12px 26px; }
@@ -216,7 +222,7 @@
 <div class="prize-card" id="card">
   <div class="icon" id="cardIcon">🎁</div>
   <div>
-    <div class="chips"><span class="chip" id="cardId">C1</span><span class="chip" id="cardNivel">Común</span><span class="chip extra" id="cardExtra">Extra del paquete</span></div>
+    <div class="chips"><span class="chip" id="cardId">C1</span><span class="chip" id="cardNivel">Común</span><span class="chip" id="cardTema">Tema</span><span class="chip extra" id="cardExtra">Extra del paquete</span></div>
     <strong id="cardName">—</strong>
     <small id="cardAspect"></small>
   </div>
@@ -242,21 +248,17 @@
   </div>
 </section>
 
-<section class="screen hidden" id="scrCategoria">
+<section class="screen hidden" id="scrTemas">
   <div class="sheet">
-    <h2>Elige una categoría</h2>
-    <p class="sub">Cada categoría tiene sus propios temas</p>
-    <div class="choices" id="listaCategorias"></div>
+    <h2>Elige tus temas</h2>
+    <p class="sub">Combina los que quieras, de cualquier categoría. Las figuritas se reparten en partes iguales.</p>
+    <div id="listaTemas"></div>
+    <p class="count" id="temasCount"></p>
+    <div class="row-btns">
+      <button class="primary alt" id="btnTodos">Todos</button>
+      <button class="primary" id="btnTemasOk">Continuar</button>
+    </div>
     <button class="back" data-go="scrInicio">← Volver</button>
-  </div>
-</section>
-
-<section class="screen hidden" id="scrTema">
-  <div class="sheet">
-    <h2>Elige un tema</h2>
-    <p class="sub" id="temaSub"></p>
-    <div class="choices" id="listaTemas"></div>
-    <button class="back" data-go="scrCategoria">← Cambiar categoría</button>
   </div>
 </section>
 
@@ -265,7 +267,7 @@
     <h2>Elige tu paquete</h2>
     <p class="sub" id="paqueteSub"></p>
     <div class="choices" id="listaPaquetes"></div>
-    <button class="back" data-go="scrTema">← Cambiar tema</button>
+    <button class="back" data-go="scrTemas">← Cambiar temas</button>
   </div>
 </section>
 
@@ -286,7 +288,7 @@
     <div class="total" id="finalTotal"></div>
     <div class="row-btns">
       <button class="primary" id="btnOtraVez">Jugar otra vez</button>
-      <button class="primary alt" id="btnCambiarTema">Cambiar tema</button>
+      <button class="primary alt" id="btnCambiarTema">Cambiar temas</button>
     </div>
   </div>
 </section>
@@ -294,6 +296,7 @@
 <script src="data.js"></script>
 <script src="modelos.js"></script>
 <script src="creditos.js"></script>
+<script src="sorteo.js"></script>
 <script type="importmap">
   { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -309,8 +312,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const DATA = window.LS_DATA;
 const M = window.LS_MODELOS;
 const BOL = Object.fromEntries(DATA.bolitas.map((b, i) => [b.id, { ...b, idx: i }]));
-const POR_CUCHARADA = DATA.bolitasPorCucharada;
-const TOTAL_PLATO = DATA.bolitas.reduce((s, b) => s + b.cantidad, 0);
+const SORTEO = window.LS_SORTEO;
+const { min: MIN_CUCH, max: MAX_CUCH } = DATA.porCucharada;
 const SIZE_N = M.tamano.normal, SIZE_L = M.tamano.legendaria;
 const nivelDe = id => id.startsWith('R') ? 'regalo' : BOL[id].nivel;
 const sizeOf = nivel => nivel === 'legendario' ? SIZE_L : SIZE_N;
@@ -436,11 +439,11 @@ function loadScript(src) {
     document.head.appendChild(s);
   });
 }
-async function loadGlbBuffer(name) {
+async function loadGlbBuffer(name, carpeta = M.carpeta, carpetaJs = M.carpetaJs) {
   if (location.protocol !== 'file:') {
-    try { const r = await fetch(M.carpeta + name + '.glb'); if (r.ok) return await r.arrayBuffer(); } catch (e) { /* usa la copia .js */ }
+    try { const r = await fetch(carpeta + name + '.glb'); if (r.ok) return await r.arrayBuffer(); } catch (e) { /* usa la copia .js */ }
   }
-  await loadScript(M.carpetaJs + name + '.js');
+  await loadScript(carpetaJs + name + '.js');
   const b64 = window.LS_GLB[name];
   delete window.LS_GLB[name];
   const bin = atob(b64), bytes = new Uint8Array(bin.length);
@@ -464,8 +467,10 @@ function mesh(geo, material, x = 0, y = 0, z = 0) {
 }
 const FIT = {
   habitacion: { size: null, anchor: 'base' }, mesa: { size: 1.7, anchor: 'base' },
-  aro_luz: { size: 1.45, anchor: 'base' }, plato: { size: 0.38, anchor: 'base' },
-  cuchara: { size: 0.3, anchor: 'centro' }, charola: { size: 0.36, anchor: 'base' }, caja: { size: 0.2, anchor: 'base' },
+  aro_luz: { size: 1.45, anchor: 'base' }, plato: { size: 0.28, anchor: 'base' },
+  // cuchara: la copa queda centrada en el origen con su base a 4.5 cm abajo; el mango hacia +X
+  cuchara: { size: 0.15, anchor: 'copa', rotY: 180, base: -0.045 },
+  charola: { size: 0.36, anchor: 'base' }, caja: { size: 0.2, anchor: 'base' },
 };
 const registry = new Map();
 const sceneryTemplates = new Map();
@@ -507,9 +512,21 @@ function forget(holder) {
   holder.traverse(o => { if (o.userData.isLabel) { const i = labels.indexOf(o); if (i >= 0) labels.splice(i, 1); } });
   holder.parent?.remove(holder);
 }
+// vértices del modelo en coordenadas de "inner" (ya escalado y movido)
+function sceneryVerts(inner) {
+  inner.updateMatrixWorld(true);
+  const out = [], inv = inner.matrixWorld.clone().invert();
+  inner.traverse(o => {
+    if (!o.isMesh) return;
+    const p = o.geometry.attributes.position, m = inv.clone().multiply(o.matrixWorld);
+    for (let i = 0; i < p.count; i++) out.push(new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(m));
+  });
+  return out;
+}
 function fitScenery(id, root) {
   const fit = FIT[id], inner = new THREE.Group();
   inner.add(root);
+  if (fit.rotY) root.rotation.y = THREE.MathUtils.degToRad(fit.rotY);
   root.updateMatrixWorld(true);
   let box = new THREE.Box3().setFromObject(root);
   const max = Math.max(...box.getSize(new THREE.Vector3()).toArray()) || 1;
@@ -517,21 +534,34 @@ function fitScenery(id, root) {
   root.updateMatrixWorld(true);
   box = new THREE.Box3().setFromObject(root);
   const c = box.getCenter(new THREE.Vector3());
-  root.position.x -= c.x; root.position.z -= c.z;
-  root.position.y -= fit.anchor === 'centro' ? c.y : box.min.y;
+  if (fit.anchor === 'copa') {
+    // la copa es lo que toca el piso; el mango va a media altura
+    const h = box.max.y - box.min.y;
+    const foot = new THREE.Box3().setFromPoints(sceneryVerts(inner).filter(v => v.y < box.min.y + h * 0.15));
+    const fc = foot.getCenter(new THREE.Vector3());
+    root.position.x -= fc.x; root.position.z -= fc.z;
+    root.position.y += fit.base - box.min.y;
+    inner.userData.cupHalf = Math.min(foot.max.x - foot.min.x, foot.max.z - foot.min.z) / 2;
+  } else {
+    root.position.x -= c.x; root.position.z -= c.z;
+    root.position.y -= fit.anchor === 'centro' ? c.y : box.min.y;
+  }
   root.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
   return inner;
 }
 async function loadScenery() {
-  await Promise.all(Object.entries(M.escenario || {}).filter(([, p]) => p).map(async ([id, path]) => {
+  await Promise.all(Object.entries(M.escenario || {}).filter(([, p]) => p).map(async ([id, name]) => {
     try {
-      const gltf = await loader.loadAsync(path);
-      sceneryTemplates.set(id, fitScenery(id, gltf.scene));
+      const buf = await loadGlbBuffer(name, M.carpetaEscenario, M.carpetaEscenarioJs);
+      const inner = fitScenery(id, (await loader.parseAsync(buf, '')).scene);
+      sceneryTemplates.set(id, inner);
       registry.get(id)?.forEach(h => {
         h.children.filter(c => c.userData.placeholder).forEach(c => h.remove(c));
-        const m = SkeletonUtils.clone(sceneryTemplates.get(id)); m.userData.placeholder = true; h.add(m);
+        const m = SkeletonUtils.clone(inner); m.userData.placeholder = true; h.add(m);
       });
-    } catch (err) { console.warn(`No se pudo cargar "${id}" (${path})`, err); }
+      if (id === 'plato') setBowlProfile(sceneryVerts(inner));
+      if (id === 'cuchara') CUP_HALF = inner.userData.cupHalf;
+    } catch (err) { console.warn(`No se pudo cargar "${id}" (${name}); se usa la figura provisional`, err); }
   }));
 }
 
@@ -587,18 +617,45 @@ scene.add(plate);
 const plateContents = new THREE.Group();
 plate.add(plateContents);
 
-// posiciones de reposo (capas hexagonales, revueltas dentro de cada capa)
-const SLOT_D = SIZE_N * 1.2, SLOT_MAXR = PLATE_R - SIZE_N - 0.006;
-const slots = [];
-for (let layer = 0; layer < 5; layer++) {
-  const y = PLATE_FLOOR + SIZE_N / 2 + layer * SLOT_D * 0.8;
-  const ox = layer % 2 ? SLOT_D / 2 : 0, oz = layer % 2 ? SLOT_D * 0.29 : 0;
-  const layerSlots = [];
-  for (let j = -12; j <= 12; j++) for (let i = -12; i <= 12; i++) {
-    const x = i * SLOT_D + (j & 1 ? SLOT_D / 2 : 0) + ox, z = j * SLOT_D * 0.866 + oz;
-    if (Math.hypot(x, z) <= SLOT_MAXR) layerSlots.push(new THREE.Vector3(x, y, z));
+// Forma interior del plato: radio libre a cada altura. Con el plato provisional es una pared recta;
+// con el cuenco se mide de sus vértices (pared que se abre hacia arriba).
+const SLOT_D = SIZE_N * 1.2;
+let bowl = { floor: PLATE_FLOOR, innerR: () => PLATE_R - 0.006 };
+// radio máximo del centro de una figurita a la altura y (su parte de abajo es la más pegada a la pared)
+const maxR = y => Math.max(0, bowl.innerR(y - SIZE_N / 2) - SIZE_N / 2 - 0.004);
+
+// posiciones de reposo (capas hexagonales, revueltas dentro de cada capa; las de abajo primero)
+let slots = [];
+function buildSlots() {
+  slots = [];
+  for (let layer = 0; layer < 12 && slots.length < 140; layer++) {
+    const y = bowl.floor + SIZE_N / 2 + layer * SLOT_D * 0.8, rMax = maxR(y);
+    const ox = layer % 2 ? SLOT_D / 2 : 0, oz = layer % 2 ? SLOT_D * 0.29 : 0;
+    const layerSlots = [];
+    for (let j = -14; j <= 14; j++) for (let i = -14; i <= 14; i++) {
+      const x = i * SLOT_D + (j & 1 ? SLOT_D / 2 : 0) + ox, z = j * SLOT_D * 0.866 + oz;
+      if (Math.hypot(x, z) <= rMax) layerSlots.push(new THREE.Vector3(x, y, z));
+    }
+    slots.push(...shuffle(layerSlots));
   }
-  slots.push(...shuffle(layerSlots));
+}
+buildSlots();
+function setBowlProfile(verts) {
+  // piso interior: la altura del vértice más cercano al eje (el borde del fondo por dentro)
+  let floor = 0, rmin = Infinity;
+  for (const v of verts) { const r = Math.hypot(v.x, v.z); if (r < rmin) { rmin = r; floor = v.y; } }
+  // radio interior por franjas de 4 mm: el vértice más cercano al eje en cada franja
+  const top = Math.max(...verts.map(v => v.y)), STEP = 0.004, bins = [];
+  for (const v of verts) {
+    if (v.y < floor) continue;
+    const b = Math.floor((v.y - floor) / STEP);
+    bins[b] = Math.min(bins[b] ?? Infinity, Math.hypot(v.x, v.z));
+  }
+  for (let b = 0; b < bins.length; b++) bins[b] = Math.min(bins[b] ?? Infinity, ...bins.slice(b + 1, b + 3).map(x => x ?? Infinity));
+  for (let b = 0; b < bins.length; b++) if (!isFinite(bins[b])) bins[b] = b ? bins[b - 1] : rmin;
+  // las facetas planas quedan un poco más adentro que sus esquinas: se resta 3 %
+  bowl = { floor, top, innerR: y => (bins[clamp(Math.floor((y - floor) / STEP), 0, bins.length - 1)] ?? rmin) * 0.97 };
+  buildSlots();
 }
 const slotPos = (fig, i) => slots[i].clone().setY(slots[i].y + (fig.userData.r - SIZE_N / 2));
 
@@ -615,7 +672,11 @@ const spoon = (() => {
 })();
 spoon.position.copy(SPOON_REST);
 scene.add(spoon);
-const SPOON_SLOTS = [[0, -0.032, 0], [0.02, -0.026, 0.004], [-0.02, -0.026, -0.004], [0.004, -0.026, 0.02], [-0.004, -0.026, -0.02]]
+let CUP_HALF = 0.05;            // medio ancho de la copa (se mide al cargar el modelo)
+const CUP_BASE = 0.045;          // la base de la copa está 4.5 cm abajo del origen de la cuchara
+// hasta 7 figuritas: 5 abajo y 2 encima
+const SPOON_SLOTS = [[0, -0.032, 0], [0.02, -0.026, 0.004], [-0.02, -0.026, -0.004], [0.004, -0.026, 0.02], [-0.004, -0.026, -0.02],
+  [0.01, -0.012, -0.01], [-0.01, -0.012, 0.01]]
   .map(p => new THREE.Vector3(...p));
 
 /* ---------- charola ---------- */
@@ -792,7 +853,7 @@ function bake(root, o) {
 }
 
 const themeTemplates = new Map();   // tema -> Map(id -> plantilla)
-let figTemplates = new Map();
+let figTemplates = new Map();       // 'tema|id' -> plantilla, de los temas elegidos
 let failedFiles = [];
 
 async function buildTemplate(temaId, id) {
@@ -813,34 +874,42 @@ async function buildTemplate(temaId, id) {
   }
 }
 
-async function prepareTheme(temaId) {
-  if (themeTemplates.has(temaId)) { figTemplates = themeTemplates.get(temaId); return; }
+async function prepareThemes(temas) {
   const ids = [...DATA.bolitas.map(b => b.id), ...DATA.regalos.map(r => r.id)];
-  const files = [...new Set(ids.map(id => figSpec(temaId, id)).filter(s => s && s.name !== 'esfera').map(s => s.file))];
+  const pend = temas.filter(t => !themeTemplates.has(t));
+  const specs = t => ids.map(id => figSpec(t, id)).filter(s => s && s.name !== 'esfera');
+  const files = [...new Set(pend.flatMap(t => specs(t).map(s => s.file)))];
   failedFiles = [];
   let done = 0;
   const progress = () => {
-    $('cargaTxt').textContent = `${DATA.temas[temaId].nombre}: ${done} de ${files.length} modelos`;
+    $('cargaTxt').textContent = `${done} de ${files.length} modelos`;
     $('cargaBar').style.width = (files.length ? done / files.length * 90 : 90) + '%';
   };
   progress();
   await Promise.all(files.map(f => loadFile(f).catch(err => console.warn(`No se pudo cargar ${f}.glb`, err)).finally(() => { done++; progress(); })));
   $('cargaTxt').textContent = 'Preparando figuritas…';
   await new Promise(r => setTimeout(r, 30));
-  const map = new Map();
-  for (const id of ids) map.set(id, await buildTemplate(temaId, id));
+  figTemplates = new Map();
+  for (const t of temas) {
+    let map = themeTemplates.get(t);
+    if (!map) {
+      map = new Map();
+      for (const id of ids) map.set(id, await buildTemplate(t, id));
+      // solo se guarda si todo el tema cargó bien
+      if (!specs(t).some(s => failedFiles.includes(s.file))) themeTemplates.set(t, map);
+    }
+    for (const [id, tpl] of map) figTemplates.set(t + '|' + id, tpl);
+  }
   $('cargaBar').style.width = '100%';
   if (failedFiles.length) toast(`⚠️ No cargaron: ${failedFiles.join(', ')} (se usan esferas)`);
-  else themeTemplates.set(temaId, map);   // solo se guarda si todo cargó bien
-  figTemplates = map;
 }
 
-function makeFigure(id) {
-  const t = figTemplates.get(id);
+function makeFigure(tema, id) {
+  const t = figTemplates.get(tema + '|' + id);
   const h = new THREE.Group();
   h.add(t.clone());
   const size = t.userData.size;
-  h.userData = { id, bolita: id, nivel: nivelDe(id), size, r: size / 2 };
+  h.userData = { id, tema, nivel: nivelDe(id), size, r: size / 2 };
   addLabel(h, id, size * 0.5 + 0.012, 0.05);
   return h;
 }
@@ -848,44 +917,49 @@ function makeFigure(id) {
 // tamaños de presentación (lado mayor, en metros)
 const TRAY_SIZE = { n: 0.04, l: 0.06 }, SHOW_SIZE = { n: 0.11, l: 0.16 }, GIFT_SHOW = 0.1;
 const scaleFor = (h, sz) => (h.userData.nivel === 'legendario' ? sz.l : sz.n) / h.userData.size;
-const traySlot = (h, i) => new THREE.Vector3(-0.13 + i * 0.065, 0.012 + h.userData.r * scaleFor(h, TRAY_SIZE), 0);
+// hasta 4 figuritas en una fila; de 5 a 7, en dos filas
+function traySlot(h, i, n) {
+  const perRow = n > 4 ? Math.ceil(n / 2) : n, row = Math.floor(i / perRow), col = i % perRow;
+  const inRow = row ? n - perRow : perRow, z = n > 4 ? (row ? 0.05 : -0.05) : 0;
+  return new THREE.Vector3((col - (inRow - 1) / 2) * 0.075, 0.012 + h.userData.r * scaleFor(h, TRAY_SIZE), z);
+}
 
 /* =========================================================
    ESTADO DEL JUEGO
    ========================================================= */
 const S = {
-  categoria: null, tema: null, paquete: null,
+  temas: [], paquete: null,
   plate: [], tray: [], shown: null, scoopsDone: 0, extras: [], won: [],
   busy: false, status: '', screen: 'scrInicio',
 };
-function premioDe(id) { return DATA.temas[S.tema].premios[BOL[id].idx]; }
-function nombreTema() { return DATA.temas[S.tema].nombre; }
+function premioDe(tema, id) { return DATA.temas[tema].premios[BOL[id].idx]; }
+const nombreTema = t => DATA.temas[t].nombre;
+const nombresTemas = () => S.temas.map(nombreTema).join(' + ');
+
+function addToPlate(tema, id, slot) {
+  const h = makeFigure(tema, id);
+  h.userData.slot = slot;
+  h.position.copy(slotPos(h, slot));
+  h.rotation.set(rand(-0.5, 0.5), rand(0, 6.28), rand(-0.5, 0.5));
+  plateContents.add(h);
+  S.plate.push(h);
+  return h;
+}
 
 function resetGame() {
   [...S.plate, ...S.tray.map(t => t.h)].forEach(forget);
   if (S.shown) forget(S.shown);
   S.plate = []; S.tray = []; S.shown = null; S.scoopsDone = 0; S.won = [];
 
-  const ids = [];
-  for (const b of DATA.bolitas) for (let i = 0; i < b.cantidad; i++) ids.push(b.id);
-  shuffle(ids);
-  ids.forEach((id, i) => {
-    const h = makeFigure(id);
-    h.userData.slot = i;
-    h.position.copy(slotPos(h, i));
-    h.rotation.set(rand(-0.5, 0.5), rand(0, 6.28), rand(-0.5, 0.5));
-    plateContents.add(h);
-    S.plate.push(h);
-  });
+  shuffle(SORTEO.plato(S.temas)).forEach((f, i) => addToPlate(f.tema, f.id, i));
 
-  const tema = nombreTema();
   S.extras = S.paquete.extras.map(tipo => {
     if (tipo === 'regalo') {
-      const r = pick(DATA.regalos);
-      return { id: r.id, nivel: 'regalo', nombre: r.nombre.replace('[tema]', tema), extra: true };
+      const r = pick(DATA.regalos), tema = pick(S.temas);
+      return { id: r.id, tema, nivel: 'regalo', nombre: r.nombre.replace('[tema]', nombreTema(tema)), extra: true };
     }
-    const b = pick(DATA.bolitas.filter(x => x.nivel === tipo));
-    return { id: b.id, nivel: b.nivel, nombre: premioDe(b.id), extra: true };
+    const f = SORTEO.asegurada(S.temas, tipo);
+    return { ...f, nombre: premioDe(f.tema, f.id), extra: true };
   });
 
   hideCard();
@@ -901,7 +975,7 @@ const ui = {
   hud: $('hud'), hint: $('hint'), tabla: $('tabla'),
   mix: $('btnMix'), scoop: $('btnScoop'), reveal: $('btnReveal'), next: $('btnNext'), nextLabel: $('btnNextLabel'),
   scoopNow: $('scoopNow'), scoopTotal: $('scoopTotal'), plateCount: $('plateCount'), cajaCount: $('cajaCount'),
-  card: $('card'), cardIcon: $('cardIcon'), cardId: $('cardId'), cardNivel: $('cardNivel'),
+  card: $('card'), cardIcon: $('cardIcon'), cardId: $('cardId'), cardNivel: $('cardNivel'), cardTema: $('cardTema'),
   cardExtra: $('cardExtra'), cardName: $('cardName'), cardAspect: $('cardAspect'), toast: $('toast'),
 };
 
@@ -920,18 +994,22 @@ function icono(nombre, nivel) {
   return f ? f[1] : (nivel === 'regalo' ? '🎀' : '🎁');
 }
 const nivelNombre = n => DATA.niveles[n].nombre;
-const pct = b => (b.cantidad / TOTAL_PLATO * 100).toFixed(1).replace('.0', '') + ' %';
+const fmtPct = v => +v.toFixed(2) + ' %';
 
 function renderTabla() {
   const counts = {};
-  S.won.filter(w => w.nivel !== 'regalo').forEach(w => counts[w.id] = (counts[w.id] || 0) + 1);
+  S.won.filter(w => w.nivel !== 'regalo').forEach(w => { const k = w.tema + '|' + w.id; counts[k] = (counts[k] || 0) + 1; });
+  const varios = S.temas.length > 1;
   let html = '';
   for (const nivel of ['comun', 'epico', 'legendario']) {
-    html += `<h4>${nivelNombre(nivel)}</h4>`;
-    for (const b of DATA.bolitas.filter(x => x.nivel === nivel)) {
-      html += `<div class="row"><span class="rid ${nivel}">${b.id}</span><span>${premioDe(b.id)}</span><span class="pct">${pct(b)}</span><span class="won">${counts[b.id] ? '×' + counts[b.id] : ''}</span></div>`;
+    const peso = DATA.pesos[nivel], del = DATA.bolitas.filter(x => x.nivel === nivel);
+    html += `<h4>${nivelNombre(nivel)} · ${peso} %</h4>`;
+    for (const t of S.temas) for (const b of del) {
+      const k = t + '|' + b.id;
+      html += `<div class="row"><span class="rid ${nivel}">${b.id}</span><span>${premioDe(t, b.id)}</span><span class="pct">${fmtPct(peso / S.temas.length / del.length)}</span><span class="won">${counts[k] ? '×' + counts[k] : ''}</span></div>`;
     }
   }
+  if (varios) html += `<div class="foot">Cada nivel se reparte igual entre ${S.temas.length} temas</div>`;
   html += `<div class="foot">Extras del paquete: ${describeExtras(S.paquete)}</div>`;
   ui.tabla.innerHTML = html;
 }
@@ -947,7 +1025,7 @@ function refresh() {
   const N = S.paquete.cucharadas, pend = unrevealed();
   const allScooped = S.scoopsDone >= N;
   ui.mix.disabled = S.busy;
-  ui.scoop.disabled = S.busy || allScooped || pend > 0 || S.plate.length < POR_CUCHARADA;
+  ui.scoop.disabled = S.busy || allScooped || pend > 0 || S.plate.length < MAX_CUCH;
   ui.reveal.disabled = S.busy || pend === 0;
   ui.next.disabled = S.busy || !allScooped || pend > 0;
   ui.nextLabel.textContent = S.extras.length ? `Extras (${S.extras.length})` : 'Caja final';
@@ -955,7 +1033,7 @@ function refresh() {
   ui.scoopTotal.textContent = N;
   ui.plateCount.textContent = S.plate.length;
   ui.cajaCount.textContent = S.won.length;
-  $('pillTema').textContent = `${nombreTema()} · ${S.paquete.nombre} · $${S.paquete.precio}`;
+  $('pillTema').textContent = `${S.temas.length > 2 ? S.temas.length + ' temas' : nombresTemas()} · ${S.paquete.nombre} · $${S.paquete.precio}`;
   ui.hint.textContent =
     S.busy ? S.status :
     pend > 0 ? `Revela las figuritas una por una (quedan ${pend})` :
@@ -975,9 +1053,10 @@ function showCard(p) {
   ui.cardId.textContent = p.id;
   ui.cardNivel.textContent = nivelNombre(p.nivel);
   ui.cardNivel.className = 'chip ' + p.nivel;
+  ui.cardTema.textContent = nombreTema(p.tema);
   ui.cardExtra.classList.toggle('hidden', !p.extra);
   ui.cardName.textContent = p.nombre;
-  ui.cardAspect.textContent = p.nivel === 'regalo' ? 'Regalo de la bolsa aparte' : `Figurita ${p.id}`;
+  ui.cardAspect.textContent = `${p.nivel === 'regalo' ? 'Regalo' : nivelNombre(p.nivel)} · Tema ${nombreTema(p.tema)}`;
   ui.card.className = 'prize-card show ' + p.nivel;
 }
 function hideCard() { ui.card.className = 'prize-card'; }
@@ -1069,8 +1148,8 @@ async function doMix() {
     plate.rotation.x = env * 0.02 * Math.cos(time * 21);
     for (const q of data) {
       const ang = q.a + q.sp * spin;
-      const rr = clamp(q.r + env * 0.04 * Math.sin(q.ph + time * 8), 0, SLOT_MAXR);
       const yy = q.y + env * Math.abs(Math.sin(q.ph * 2 + time * 12)) * 0.04;
+      const rr = clamp(q.r + env * 0.04 * Math.sin(q.ph + time * 8), 0, maxR(yy));
       q.h.position.set(Math.cos(ang) * rr, yy, Math.sin(ang) * rr);
       q.h.rotation.x = q.rx0 + q.rx * spin * 0.3;
       q.h.rotation.y = q.ry0 + q.ry * spin * 0.3;
@@ -1089,25 +1168,45 @@ async function doMix() {
   setBusy(false);
 }
 
-// 2) CUCHARADA — 5 figuritas al azar a la charola
+// 2) CUCHARADA — se decide cuántas (4 a 7) y cuáles figuritas con sorteo.js, y la cuchara saca esas
 async function doScoop() {
   if (ui.scoop.disabled) return;
   setBusy(true, 'Sacando cucharada…');
   await stowShown();
 
-  // punto al azar del plato; como están revueltas, las 5 más cercanas son 5 al azar
-  const ang = rand(0, Math.PI * 2), rad = Math.sqrt(Math.random()) * 0.08;
+  const outcomes = Array.from({ length: SORTEO.cantidad() }, () => SORTEO.figurita(S.temas));
+  // la copa entra hasta 2 cm debajo de la capa de arriba, sin chocar con la pared del cuenco
+  const pileTop = Math.max(...S.plate.map(h => h.position.y));
+  const cupY = Math.max(bowl.floor + 0.004, pileTop - 0.02);
+  const reach = clamp(maxR(cupY + SIZE_N / 2) + SIZE_N / 2 - CUP_HALF, 0, 0.08);
+  const ang = rand(0, Math.PI * 2), rad = Math.sqrt(Math.random()) * reach;
   const dip = new THREE.Vector3(Math.cos(ang) * rad, 0, Math.sin(ang) * rad);
-  const chosen = [...S.plate]
+  // figuritas cerca de donde entra la cuchara; se usa la que ya sea ese premio, o si no, se cambia por él
+  const pool = [...S.plate]
     .map(h => ({ h, d: Math.hypot(h.position.x - dip.x, h.position.z - dip.z) - h.position.y * 0.6 }))
-    .sort((a, b) => a.d - b.d).slice(0, POR_CUCHARADA).map(o => o.h);
-  S.plate = S.plate.filter(h => !chosen.includes(h));
+    .sort((a, b) => a.d - b.d).slice(0, 24).map(o => o.h);
+  const picks = outcomes.map(o => {
+    const i = pool.findIndex(h => h.userData.tema === o.tema && h.userData.id === o.id);
+    return { o, h: pool.splice(Math.max(0, i), 1)[0] };
+  });
+  // lo que se saca, para rellenar el plato igual al final
+  const removed = picks.map(({ h }) => ({ tema: h.userData.tema, id: h.userData.id, slot: h.userData.slot }));
+  S.plate = S.plate.filter(h => !picks.some(p => p.h === h));
 
-  const above = plate.localToWorld(new THREE.Vector3(dip.x, 0.18, dip.z));
-  const into = plate.localToWorld(new THREE.Vector3(dip.x, 0.06, dip.z));
+  const above = plate.localToWorld(new THREE.Vector3(dip.x, Math.max(0.18, (bowl.top ?? 0) + CUP_BASE + 0.04), dip.z));
+  const into = plate.localToWorld(new THREE.Vector3(dip.x, cupY + CUP_BASE, dip.z));
   await arc(spoon, above, 0.05, 0.5, undefined, ease.inOut, 0);
   let f = spoon.position.clone();
   await tween(0.3, k => spoon.position.lerpVectors(f, into, k), ease.in);
+
+  // con la cuchara adentro, las que no coinciden se cambian por la figurita sorteada
+  const chosen = picks.map(({ o, h }) => {
+    if (h.userData.tema === o.tema && h.userData.id === o.id) return h;
+    const n = makeFigure(o.tema, o.id);
+    n.position.copy(h.position); n.rotation.copy(h.rotation);
+    plateContents.add(n); forget(h);
+    return n;
+  });
 
   chosen.forEach(h => spoon.attach(h));
   const starts = chosen.map(h => h.position.clone());
@@ -1128,7 +1227,7 @@ async function doScoop() {
   await Promise.all(chosen.map(async (h, i) => {
     await wait(i * 0.07);
     scene.attach(h);
-    const target = tray.localToWorld(traySlot(h, S.tray.length + i));
+    const target = tray.localToWorld(traySlot(h, i, chosen.length));
     await Promise.all([arc(h, target, 0.03, 0.4, scaleFor(h, TRAY_SIZE), ease.in), straighten(h, 0.4)]);
     tray.attach(h);
   }));
@@ -1137,6 +1236,16 @@ async function doScoop() {
   await tween(0.25, k => spoon.rotation.x = 1.3 * (1 - k));
   await arc(spoon, SPOON_REST, 0.08, 0.55, undefined, ease.inOut, 0);
   spoon.rotation.set(0, 0, 0);
+
+  // el plato se rellena con las mismas figuritas que salieron (caen desde arriba)
+  await Promise.all(removed.map(async (r, i) => {
+    const h = addToPlate(r.tema, r.id, r.slot), y = h.position.y;
+    h.position.y = y + 0.15;
+    await wait(i * 0.06);
+    await tween(0.35, k => h.position.y = y + 0.15 * (1 - k), ease.in);
+  }));
+  ui.plateCount.textContent = S.plate.length;
+  toast(`🥄 ¡Esta cucharada sacó ${chosen.length} figuritas!`);
   S.scoopsDone++;
   setBusy(false);
 }
@@ -1152,7 +1261,8 @@ async function doReveal() {
   S.tray.splice(S.tray.indexOf(t), 1);
   scene.attach(h);
   await Promise.all([arc(h, SHOW_POS, 0.12, 0.6, scaleFor(h, SHOW_SIZE)), straighten(h, 0.6)]);
-  presentPrize(h, { id: h.userData.id, nivel: h.userData.nivel, nombre: premioDe(h.userData.id), extra: false });
+  const { id, tema, nivel } = h.userData;
+  presentPrize(h, { id, tema, nivel, nombre: premioDe(tema, id), extra: false });
   setBusy(false);
 }
 function presentPrize(h, p) {
@@ -1171,7 +1281,7 @@ async function doNext() {
     setBusy(true, 'Revelando extra del paquete…');
     await stowShown();
     const p = S.extras.shift();
-    const h = makeFigure(p.id);
+    const h = makeFigure(p.tema, p.id);
     h.position.copy(SHOW_POS);
     h.scale.setScalar(0.001);
     scene.add(h);
@@ -1193,7 +1303,7 @@ async function doNext() {
 function showFinal() {
   const groups = { legendario: [], epico: [], comun: [], regalo: [] };
   for (const w of S.won) {
-    const g = groups[w.nivel], k = w.nombre + (w.extra ? '|x' : '');
+    const g = groups[w.nivel], k = w.tema + '|' + w.nombre + (w.extra ? '|x' : '');
     const found = g.find(x => x.key === k);
     found ? found.n++ : g.push({ key: k, ...w, n: 1 });
   }
@@ -1202,12 +1312,12 @@ function showFinal() {
     if (!items.length) continue;
     html += `<h4>${nivelNombre(nivel)} · ${items.reduce((s, i) => s + i.n, 0)}</h4>`;
     for (const i of items) {
-      html += `<div class="item"><span class="ic">${icono(i.nombre, nivel)}</span><span>${i.nombre}<br><span class="chip">${i.id}</span>${i.extra ? ' <span class="chip extra">Extra del paquete</span>' : ''}</span><span class="n">×${i.n}</span></div>`;
+      html += `<div class="item"><span class="ic">${icono(i.nombre, nivel)}</span><span>${i.nombre}<br><span class="chip">${nombreTema(i.tema)}</span>${i.extra ? ' <span class="chip extra">Extra del paquete</span>' : ''}</span><span class="n">×${i.n}</span></div>`;
     }
   }
   $('finalList').innerHTML = html;
   $('finalTotal').textContent = `Total: ${S.won.length} premios`;
-  $('finalSub').textContent = `${nombreTema()} · ${S.paquete.nombre}`;
+  $('finalSub').textContent = `${nombresTemas()} · ${S.paquete.nombre}`;
   go('scrFinal');
 }
 
@@ -1224,43 +1334,52 @@ function startGame() { resetGame(); go(null); }
 async function loadAndStart() {
   go('scrCargando');
   $('cargaWarn').classList.add('hidden');
-  await prepareTheme(S.tema);
+  await Promise.all([prepareThemes(S.temas), sceneryReady]);   // el cuenco define dónde van las figuritas
   startGame();
 }
 
-$('btnJugar').onclick = () => { audio(); go('scrCategoria'); };
+$('btnJugar').onclick = () => { audio(); go('scrTemas'); };
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
 
 $('creditosNota').textContent = window.LS_CREDITOS.nota;
 $('creditosLista').innerHTML = window.LS_CREDITOS.lista.map(([file, titulo, autor, lic, url]) =>
   `<li><b>"${titulo}"</b> por ${autor} <span class="lic ${lic.includes('NonCommercial') ? 'nc' : ''}">${lic}</span><br>
-   <span class="file">${file}</span> · <a href="${url}" target="_blank" rel="noopener">Ver en Sketchfab</a></li>`).join('');
+   <span class="file">${file}</span> · <a href="${url}" target="_blank" rel="noopener">Ver en ${url.includes('makerworld') ? 'MakerWorld' : 'Sketchfab'}</a></li>`).join('');
 
-$('listaCategorias').innerHTML = DATA.categorias.map(c =>
-  `<button class="big" data-cat="${c.id}"><span class="e">${c.icono}</span>${c.nombre}<span class="det">${c.temas.map(t => DATA.temas[t].nombre).join(' · ')}</span></button>`).join('');
-$('listaCategorias').onclick = e => {
-  const b = e.target.closest('[data-cat]'); if (!b) return;
-  S.categoria = DATA.categorias.find(c => c.id === b.dataset.cat);
-  $('temaSub').textContent = `Categoría ${S.categoria.nombre}`;
-  $('listaTemas').innerHTML = S.categoria.temas.map(t =>
-    `<button class="big" data-tema="${t}"><span class="e">${icono(DATA.temas[t].premios[10])}</span>${DATA.temas[t].nombre}</button>`).join('');
-  go('scrTema');
-};
+// Elegir temas: selección múltiple, agrupados por categoría (solo para ordenar)
+const TODOS_TEMAS = DATA.categorias.flatMap(c => c.temas);
+$('listaTemas').innerHTML = DATA.categorias.map(c =>
+  `<h4 class="cat-title">${c.icono} ${c.nombre}</h4><div class="choices">${c.temas.map(t =>
+    `<button class="big" data-tema="${t}" aria-pressed="false"><span class="e">${icono(DATA.temas[t].premios[10])}</span>${nombreTema(t)}</button>`).join('')}</div>`).join('');
+function renderSeleccion() {
+  document.querySelectorAll('[data-tema]').forEach(b => b.setAttribute('aria-pressed', S.temas.includes(b.dataset.tema)));
+  const n = S.temas.length;
+  $('temasCount').textContent = n ? `${n} ${n === 1 ? 'tema elegido' : 'temas elegidos'}` : 'Elige mínimo 1 tema';
+  $('btnTemasOk').disabled = n === 0;
+  $('btnTodos').textContent = n === TODOS_TEMAS.length ? 'Quitar todos' : 'Todos';
+}
 $('listaTemas').onclick = e => {
   const b = e.target.closest('[data-tema]'); if (!b) return;
-  S.tema = b.dataset.tema;
-  $('paqueteSub').textContent = `Tema: ${nombreTema()}`;
+  const t = b.dataset.tema;
+  S.temas = S.temas.includes(t) ? S.temas.filter(x => x !== t) : TODOS_TEMAS.filter(x => x === t || S.temas.includes(x));
+  renderSeleccion();
+};
+$('btnTodos').onclick = () => { S.temas = S.temas.length === TODOS_TEMAS.length ? [] : [...TODOS_TEMAS]; renderSeleccion(); };
+$('btnTemasOk').onclick = () => {
+  if (!S.temas.length) return;
+  $('paqueteSub').textContent = `${S.temas.length === 1 ? 'Tema' : 'Temas'}: ${S.temas.map(nombreTema).join(', ')}`;
   $('listaPaquetes').innerHTML = DATA.paquetes.map(p =>
-    `<button class="big" data-paq="${p.id}"><span class="e">${'🥄'.repeat(p.cucharadas)}</span>${p.nombre}<span class="price">$${p.precio}</span><span class="det">${p.cucharadas * POR_CUCHARADA} figuritas<br>${describeExtras(p)}</span></button>`).join('');
+    `<button class="big" data-paq="${p.id}"><span class="e">${'🥄'.repeat(p.cucharadas)}</span>${p.nombre}<span class="price">$${p.precio}</span><span class="det">${p.cucharadas * MIN_CUCH}–${p.cucharadas * MAX_CUCH} figuritas<br>${describeExtras(p)}</span></button>`).join('');
   go('scrPaquete');
 };
+renderSeleccion();
 $('listaPaquetes').onclick = e => {
   const b = e.target.closest('[data-paq]'); if (!b) return;
   S.paquete = DATA.paquetes.find(p => p.id === b.dataset.paq);
   loadAndStart();
 };
 $('btnOtraVez').onclick = startGame;
-$('btnCambiarTema').onclick = () => go('scrCategoria');
+$('btnCambiarTema').onclick = () => go('scrTemas');
 
 ui.mix.onclick = doMix;
 ui.scoop.onclick = doScoop;
@@ -1344,7 +1463,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-loadScenery();
+const sceneryReady = loadScenery();
 </script>
 </body>
 </html>

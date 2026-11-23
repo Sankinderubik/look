@@ -51,3 +51,5 @@ canasta_dimsum.glb | "Steamed Dumplings for Dim Sum Cravings" por IffahKash07 | 
 nube.glb | "Fluffy Cloud" por norgeotloic | CC Attribution | https://sketchfab.com/3d-models/2c887a28840f47cfae6b5dee0d11b842
 pastel.glb | "Castella Cake (Low Poly)" por ditovirnantio | CC Attribution | https://sketchfab.com/3d-models/5a739414f7014608a9f432f8749dd3f3
 set_postres.glb | "Fruits & Cake decorations" por Froggreen | CC Attribution | https://sketchfab.com/3d-models/68bdaec560934db5acecd06817146a20
+cuchara_corazon.glb | "The Big Heart Scoop" por MakerShed | MakerWorld Standard Digital File License (uso personal, no comercial, no distribuir) | https://makerworld.com/es/models/1123326
+cuenco_facetform_bajo.glb | "FacetForm Bowls" por Adam L. | MakerWorld Standard Digital File License (uso personal, no comercial, no distribuir) | https://makerworld.com/es/models/1214502

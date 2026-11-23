@@ -54,5 +54,7 @@ window.LS_CREDITOS = {
     ['nube.glb', 'Fluffy Cloud', 'norgeotloic', 'CC Attribution', 'https://sketchfab.com/3d-models/2c887a28840f47cfae6b5dee0d11b842'],
     ['pastel.glb', 'Castella Cake (Low Poly)', 'ditovirnantio', 'CC Attribution', 'https://sketchfab.com/3d-models/5a739414f7014608a9f432f8749dd3f3'],
     ['set_postres.glb', 'Fruits & Cake decorations', 'Froggreen', 'CC Attribution', 'https://sketchfab.com/3d-models/68bdaec560934db5acecd06817146a20'],
+    ['cuchara_corazon.glb', 'The Big Heart Scoop', 'MakerShed', 'Standard Digital File License (uso personal, NonCommercial)', 'https://makerworld.com/es/models/1123326'],
+    ['cuenco_facetform_bajo.glb', 'FacetForm Bowls', 'Adam L.', 'Standard Digital File License (uso personal, NonCommercial)', 'https://makerworld.com/es/models/1214502'],
   ],
 };
